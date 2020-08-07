@@ -1,3 +1,9 @@
-/tweets/
 /venv/
 /.idea/
+/filtered_tweets_files/
+/extracted_tweets_files/
+/hydrated_tweets_files/
+/twarc.log
+/.ipynb_checkpoints/
+/downloaded_tweets_files/
+/merged_tweets_files/
