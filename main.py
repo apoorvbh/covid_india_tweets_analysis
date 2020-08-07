@@ -1,4 +1,4 @@
-import get_tweets
+import tweets_files
 
 if __name__ == '__main__':
-    get_tweets.get_tweet()
+    tweets_files.get_all_tweets_files()
