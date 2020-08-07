@@ -50,7 +50,7 @@ class TweetsFiles:
                 df = pd.read_json(f, lines=True)
         else:
             print("File doesn't exists")
-            df = None
+            df = pd.DataFrame()
 
         return df
 
@@ -133,16 +133,23 @@ class TweetsFiles:
                                                                          self.extracted_tweets_file_type)
         extracted_tweets_file = os.path.join(self.extracted_tweets_files_dir, extracted_tweet_file_name)
 
-        print('Download File Url Path : {}'.format(download_tweets_file_path))
-        self.download_tweet_file(download_tweets_file_path, downloaded_tweets_file)
-        print('Downloaded File Path : {}'.format(downloaded_tweets_file))
+        merged_tweet_file_name = self.create_file_name(file_name_suffix,
+                                                       self.merged_tweets_file_type)
+        merged_tweets_file = os.path.join(self.merged_tweets_files_dir, merged_tweet_file_name)
 
-        self.extract_tweet_file(downloaded_tweets_file, extracted_tweets_file)
-        print('Extracted File Path : {}'.format(extracted_tweets_file))
+        print('Looking for Merged File Path : {}'.format(merged_tweets_file))
+        if os.path.exists(merged_tweets_file):
+            print('Merged file available. Skipping process...')
+        else:
+            print('Merged file not available. Starting process...')
 
-        self.read_extracted_tweet_file(extracted_tweets_file, file_name_suffix)
+            self.download_tweet_file(download_tweets_file_path, downloaded_tweets_file)
 
-    def read_extracted_tweet_file(self, extracted_tweets_file, file_name_suffix):
+            self.extract_tweet_file(downloaded_tweets_file, extracted_tweets_file)
+
+            self.read_extracted_tweet_file(file_name_suffix, extracted_tweets_file, merged_tweets_file)
+
+    def read_extracted_tweet_file(self, file_name_suffix, extracted_tweets_file, merged_tweets_file):
         filtered_tweet_file_name = self.create_file_name(file_name_suffix,
                                                          self.filtered_tweets_file_type)
         filtered_tweets_file = os.path.join(self.filtered_tweets_files_dir, filtered_tweet_file_name)
@@ -151,76 +158,88 @@ class TweetsFiles:
                                                          self.filtered_tweets_file_type)
         hydrated_tweets_file = os.path.join(self.hydrated_tweets_files_dir, hydrated_tweet_file_name)
 
-        merged_tweet_file_name = self.create_file_name(file_name_suffix,
-                                                       self.merged_tweets_file_type)
-        merged_tweets_file = os.path.join(self.merged_tweets_files_dir, merged_tweet_file_name)
-
         tweets_df = self.read_json_file_to_dataframe(extracted_tweets_file)
+        refined_tweets_df = self.populate_location_columns(tweets_df)
+        refined_tweets_df = self.populate_tweet_location_column(refined_tweets_df)
+        refined_tweets_df = self.populate_custom_fields(refined_tweets_df)
+        refined_tweets_df = self.rename_raw_columns(refined_tweets_df)
 
-        if tweets_df:
-            refined_tweets_df = self.populate_location_columns(tweets_df)
-            refined_tweets_df = self.populate_tweet_location_column(refined_tweets_df)
-            refined_tweets_df = self.populate_custom_fields(refined_tweets_df)
-            refined_tweets_df = self.rename_raw_columns(refined_tweets_df)
+        filtered_tweets_df = self.filter_india_specific_tweets(refined_tweets_df)
+        self.create_filtered_tweet_ids_file(filtered_tweets_df, filtered_tweets_file)
 
-            filtered_tweets_df = self.filter_india_specific_tweets(refined_tweets_df)
-            self.create_filtered_tweet_ids_file(filtered_tweets_df, filtered_tweets_file)
+        self.hydrate_tweets_from_file(filtered_tweets_file, hydrated_tweets_file)
 
-            self.hydrate_tweets_from_file(filtered_tweets_file, hydrated_tweets_file)
+        merged_tweets_df = self.create_merged_dataframe(filtered_tweets_df, hydrated_tweets_file)
+        self.populate_summary(merged_tweets_df)
+        self.create_merged_tweets_file(merged_tweets_df, merged_tweets_file)
 
-            merged_tweets_df = self.create_hydrated_dataframe(filtered_tweets_df, hydrated_tweets_file)
-            self.create_merged_tweet_ids_file(merged_tweets_df, merged_tweets_file)
+    @staticmethod
+    def populate_summary(merged_tweets_df):
+        print(len(merged_tweets_df.index))
+        print(merged_tweets_df['is_tweet_locations_inc_india'].value_counts())
+        print(merged_tweets_df['is_user_india_based'].value_counts())
+        print(len(merged_tweets_df.loc[pd.isnull(merged_tweets_df['full_text']), :].index))
 
     def download_tweet_file(self, download_tweets_file_path, downloaded_tweets_file):
+        print('Download File Url Path : {}'.format(download_tweets_file_path))
+        print('Looking for Downloaded File Path : {}'.format(downloaded_tweets_file))
         if not os.path.exists(downloaded_tweets_file):
             print('File not available. Downloading...')
             wget.download(download_tweets_file_path, out=self.downloaded_tweets_files_dir)
-            print()
         else:
             print('File already exists')
+        print()
 
     def extract_tweet_file(self, downloaded_tweets_file, extracted_tweets_file):
+        print('Looking for Extracted File Path : {}'.format(extracted_tweets_file))
         if os.path.exists(downloaded_tweets_file) and not os.path.exists(extracted_tweets_file):
             print('File not available. Extracting...')
             with zipfile.ZipFile(downloaded_tweets_file, 'r') as zip_ref:
                 zip_ref.extractall(self.extracted_tweets_files_dir)
-            print()
         else:
             print('File already exists')
+        print()
 
-    def create_hydrated_dataframe(self, filtered_tweets_df, hydrated_tweets_file):
-        if filtered_tweets_df and not os.path.exists(hydrated_tweets_file):
+    def create_merged_dataframe(self, filtered_tweets_df, hydrated_tweets_file):
+        if not (filtered_tweets_df.empty or os.path.exists(hydrated_tweets_file)):
+            print('Hydrated File available. Creating merged dataframe...')
             hydrated_tweets_df = self.read_json_file_to_dataframe(hydrated_tweets_file)
             merged_tweets_df = filtered_tweets_df.merge(hydrated_tweets_df.rename(columns={'id': 'tweet_id'}),
                                                         how='left', on='tweet_id')
         else:
             print("Dataframe doesn't exist or File already exists")
+            merged_tweets_df = pd.DataFrame()
+        print()
 
         return merged_tweets_df
 
     @staticmethod
     def create_filtered_tweet_ids_file(filtered_tweets_df, filtered_tweets_file):
-        print('Filtered File Path : {}'.format(filtered_tweets_file))
-        if filtered_tweets_df and not os.path.exists(filtered_tweets_file):
+        print('Looking for Filtered File Path : {}'.format(filtered_tweets_file))
+        if not (filtered_tweets_df.empty or os.path.exists(filtered_tweets_file)):
+            print('File not available. Creating filtered file...')
             filtered_tweets_df.to_csv(filtered_tweets_file,
                                       columns=['tweet_id'], header=False, index=False)
         else:
             print("Dataframe doesn't exist or File already exists")
+        print()
 
     @staticmethod
-    def create_merged_tweet_ids_file(merged_tweets_df, merged_tweets_file):
-        print('Merged File Path : {}'.format(merged_tweets_file))
-        if merged_tweets_df and not os.path.exists(merged_tweets_file):
+    def create_merged_tweets_file(merged_tweets_df, merged_tweets_file):
+        print('Looking for Merged File Path : {}'.format(merged_tweets_file))
+        if not (merged_tweets_df.empty or os.path.exists(merged_tweets_file)):
+            print('File not available. Creating merged file...')
             merged_tweets_df.to_csv(merged_tweets_file, index=False)
         else:
             print("Dataframe doesn't exist or File already exists")
+        print()
 
     @staticmethod
     def hydrate_tweets_from_file(filtered_tweets_file, hydrated_tweets_file):
-        print('Hydrated File Path : {}'.format(hydrated_tweets_file))
+        print('Looking for Hydrated File Path : {}'.format(hydrated_tweets_file))
         if not os.path.exists(hydrated_tweets_file):
             print('File not available. Hydrating...')
             os.system('twarc hydrate ' + filtered_tweets_file + '> ' + hydrated_tweets_file)
-            print()
         else:
             print('File already exists')
+        print()
