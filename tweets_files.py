@@ -26,8 +26,6 @@ class TweetsFiles:
         self.filtered_tweets_file_type = 'txt'
         self.cleaned_tweets_file_type = 'csv'
 
-        self.clean_tweet = CleanTweet()
-
         utilities.create_dir(self.downloaded_tweets_files_dir)
         utilities.create_dir(self.hydrated_tweets_files_dir)
         utilities.create_dir(self.cleaned_tweets_files_dir)
@@ -170,6 +168,8 @@ class TweetsFiles:
 
         merged_tweets_df = self.create_merged_dataframe(filtered_tweets_df, hydrated_tweets_file)
 
+        cleaned_tweets_df = self.clean_full_tweets(merged_tweets_df)
+
         summary_row_dict['file_name'] = file_name
         summary_row_dict['total_tweets'] = len(tweets_df.index)
         summary_row_dict['tweets_india'] = refined_tweets_df[
@@ -182,11 +182,11 @@ class TweetsFiles:
             .value_counts().to_dict().get(
             0)
         summary_row_dict['tweet_with_full_text'] = len(
-            merged_tweets_df.loc[pd.isnull(merged_tweets_df['full_text']), :].index)
+            cleaned_tweets_df.loc[pd.isnull(cleaned_tweets_df['full_text']), :].index)
         summary_row_dict['tweet_without_full_text'] = len(
-            merged_tweets_df.loc[~pd.isnull(merged_tweets_df['full_text']), :].index)
+            cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text']), :].index)
 
-        cleaned_tweets_df = self.filter_dataframe(merged_tweets_df)
+        cleaned_tweets_df = self.filter_dataframe(cleaned_tweets_df)
         self.create_cleaned_tweets_file(cleaned_tweets_df, cleaned_tweets_file)
 
         return summary_row_dict
@@ -263,12 +263,24 @@ class TweetsFiles:
             print('File already exists')
         print()
 
-    def filter_dataframe(self, tweets_df):
-        cleaned_tweets_df = tweets_df.loc[~pd.isnull(tweets_df['full_text'])]
-        cleaned_tweets_df.loc[:, 'full_text'] = cleaned_tweets_df.loc[:, 'full_text'] \
-            .apply(lambda x: self.clean_tweet.process_tweet(x))
-        cleaned_tweets_df = cleaned_tweets_df.loc[:, ['tweet_id', 'is_user_india_based',
-                                                      'full_text'
-                                                      ]]
+    @staticmethod
+    def clean_full_tweets(tweets_df):
+        clean_tweet = CleanTweet()
+
+        cleaned_tweets_df = tweets_df.copy()
+
+        cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text']), 'full_text'] = cleaned_tweets_df \
+            .loc[~pd.isnull(cleaned_tweets_df['full_text']), 'full_text'].apply(lambda x: clean_tweet.process_tweet(x))\
+            .copy()
+
+        return cleaned_tweets_df
+
+    @staticmethod
+    def filter_dataframe(tweets_df):
+        cleaned_tweets_df = tweets_df.loc[:, ['tweet_id', 'full_text',
+                                              'is_user_india_based'
+                                              ]].copy()
+
+        cleaned_tweets_df = cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text'])].copy()
 
         return cleaned_tweets_df

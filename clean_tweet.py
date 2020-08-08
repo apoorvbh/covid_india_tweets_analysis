@@ -1,3 +1,5 @@
+import re
+
 import preprocessor as p
 
 
@@ -7,7 +9,9 @@ class CleanTweet:
 
     @staticmethod
     def process_tweet(tweet):
-        output = tweet.lower()
-        output = p.tokenize(p.clean(output))
-
+        output = tweet
+        if output and isinstance(output, str):
+            output = p.tokenize(p.clean(tweet))
+            output = output.lower().strip()
+            output = ' '.join(re.sub("[.,!?:;-=]", " ", output).split())
         return output

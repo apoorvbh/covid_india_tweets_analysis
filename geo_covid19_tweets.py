@@ -15,11 +15,12 @@ class GeoCovid19Tweets:
         tweets_collection_end_date = '2020-05-01'
         date_format = '%Y-%m-%d'
 
-        summary_file_name = 'summary.csv'
+        summary_file_name_template = 'summary_{}.csv'
         summary_fieldnames = ['file_name', 'total_tweets', 'tweets_india', 'tweets_outside_india',
                               'user_india', 'user_outside_india', 'tweet_with_full_text',
                               'tweet_without_full_text']
 
+        summary_file_name = summary_file_name_template.format(datetime.strptime(datetime.now(), date_format))
         tweets_file_base_url_for_date_files = 'https://crisisnlp.qcri.org/covid_data/en_geo_files'
         tweets_file_base_url_for_misc_file = 'https://crisisnlp.qcri.org/covid_data/misc_updates'
         tweets_date_file_name_template = 'en_geo_{}'
