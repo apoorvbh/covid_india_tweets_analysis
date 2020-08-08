@@ -103,7 +103,7 @@ class TweetsFiles:
 
     @staticmethod
     def filter_india_specific_tweets(tweets_df):
-        india_tweets_df = tweets_df.loc[tweets_df['is_tweet_locations_inc_india'] == 1]
+        india_tweets_df = tweets_df.loc[tweets_df['is_tweet_locations_inc_india'] == 1].copy()
         return india_tweets_df
 
     def cleanup(self):
@@ -154,10 +154,19 @@ class TweetsFiles:
         hydrated_tweets_file = os.path.join(self.hydrated_tweets_files_dir, hydrated_tweet_file_name)
 
         tweets_df = self.read_json_file_to_dataframe(extracted_tweets_file)
+
+        summary_row_dict['file_name'] = file_name
+        summary_row_dict['total_tweets'] = len(tweets_df.index)
+
         refined_tweets_df = self.populate_location_columns(tweets_df)
         refined_tweets_df = self.populate_tweet_location_column(refined_tweets_df)
         refined_tweets_df = self.populate_custom_fields(refined_tweets_df)
         refined_tweets_df = self.rename_raw_columns(refined_tweets_df)
+
+        summary_row_dict['india_specific_tweets'] = refined_tweets_df[
+            'is_tweet_locations_inc_india'].value_counts().to_dict().get(1)
+        summary_row_dict['outside_india_tweets'] = refined_tweets_df[
+            'is_tweet_locations_inc_india'].value_counts().to_dict().get(0)
 
         filtered_tweets_df = self.filter_india_specific_tweets(refined_tweets_df)
         self.create_filtered_tweet_ids_file(filtered_tweets_df, filtered_tweets_file)
@@ -170,23 +179,18 @@ class TweetsFiles:
 
         cleaned_tweets_df = self.clean_full_tweets(merged_tweets_df)
 
-        summary_row_dict['file_name'] = file_name
-        summary_row_dict['total_tweets'] = len(tweets_df.index)
-        summary_row_dict['tweets_india'] = refined_tweets_df[
-            'is_tweet_locations_inc_india'].value_counts().to_dict().get(1)
-        summary_row_dict['tweets_outside_india'] = refined_tweets_df[
-            'is_tweet_locations_inc_india'].value_counts().to_dict().get(0)
-        summary_row_dict['user_india'] = refined_tweets_df['is_user_india_based'] \
-            .value_counts().to_dict().get(1)
-        summary_row_dict['user_outside_india'] = refined_tweets_df['is_user_india_based'] \
-            .value_counts().to_dict().get(
-            0)
-        summary_row_dict['tweet_with_full_text'] = len(
+        summary_row_dict['india_specific_tweets_with_full_text'] = len(
             cleaned_tweets_df.loc[pd.isnull(cleaned_tweets_df['full_text']), :].index)
-        summary_row_dict['tweet_without_full_text'] = len(
+        summary_row_dict['india_specific_tweets_without_full_text'] = len(
             cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text']), :].index)
 
         cleaned_tweets_df = self.filter_dataframe(cleaned_tweets_df)
+
+        summary_row_dict['india_full_text_tweet_india_users'] = cleaned_tweets_df['is_user_india_based'] \
+            .value_counts().to_dict().get(1)
+        summary_row_dict['india_full_text_tweet_outside_india_users'] = cleaned_tweets_df['is_user_india_based'] \
+            .value_counts().to_dict().get(0)
+
         self.create_cleaned_tweets_file(cleaned_tweets_df, cleaned_tweets_file)
 
         return summary_row_dict
