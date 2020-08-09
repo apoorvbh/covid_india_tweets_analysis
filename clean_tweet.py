@@ -14,5 +14,6 @@ class CleanTweet:
         if output and isinstance(output, str):
             output = p.tokenize(p.clean(tweet))
             output = output.lower().strip()
-            output = ' '.join(re.sub("[.,!?:;-=]", " ", output).split())
+            output = ' '.join(re.sub("[.,!?:;-=*]", " ", output).split())
+            output = re.sub("\\s+", "", output)
         return output

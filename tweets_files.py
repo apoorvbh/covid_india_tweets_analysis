@@ -14,20 +14,24 @@ class TweetsFiles:
 
         self.cleaned_tweets_files_dir = cleaned_tweets_files_dir
 
+        self.downloaded_tweets_files_dir = 'downloaded_tweets_files'
         self.extracted_tweets_files_dir = 'extracted_tweets_files'
         self.filtered_tweets_files_dir = 'filtered_tweets_files'
         self.hydrated_tweets_files_dir = 'hydrated_tweets_files'
-        self.downloaded_tweets_files_dir = 'downloaded_tweets_files'
+        self.merged_tweets_files_dir = 'merged_tweets_files'
+
         self.file_template = '{}.{}'
 
         self.downloaded_tweets_file_type = 'zip'
         self.extracted_tweets_file_type = 'json'
         self.hydrated_tweets_file_type = 'json'
         self.filtered_tweets_file_type = 'txt'
+        self.merged_tweets_file_type = 'csv'
         self.cleaned_tweets_file_type = 'csv'
 
         utilities.create_dir(self.downloaded_tweets_files_dir)
         utilities.create_dir(self.hydrated_tweets_files_dir)
+        utilities.create_dir(self.merged_tweets_files_dir)
         utilities.create_dir(self.cleaned_tweets_files_dir)
 
         utilities.create_dir(self.extracted_tweets_files_dir)
@@ -148,8 +152,6 @@ class TweetsFiles:
         return summary_row_dict
 
     def read_extracted_tweet_file(self, file_name, extracted_tweets_file, cleaned_tweets_file):
-        summary_row_dict = {}
-
         filtered_tweet_file_name = self.create_file_name(file_name,
                                                          self.filtered_tweets_file_type)
         filtered_tweets_file = os.path.join(self.filtered_tweets_files_dir, filtered_tweet_file_name)
@@ -158,21 +160,17 @@ class TweetsFiles:
                                                          self.hydrated_tweets_file_type)
         hydrated_tweets_file = os.path.join(self.hydrated_tweets_files_dir, hydrated_tweet_file_name)
 
+        merged_tweet_file_name = self.create_file_name(file_name,
+                                                       self.merged_tweets_file_type)
+        merged_tweets_file = os.path.join(self.merged_tweets_files_dir, merged_tweet_file_name)
+
         tweets_df = self.read_json_file_to_dataframe(extracted_tweets_file)
         tweets_df = self.drop_duplicate_tweets(tweets_df)
-
-        summary_row_dict['file_name'] = file_name
-        summary_row_dict['total_tweets'] = len(tweets_df.index)
 
         refined_tweets_df = self.populate_location_columns(tweets_df)
         refined_tweets_df = self.populate_tweet_location_column(refined_tweets_df)
         refined_tweets_df = self.populate_custom_fields(refined_tweets_df)
         refined_tweets_df = self.rename_raw_columns(refined_tweets_df)
-
-        summary_row_dict['india_specific_tweets'] = refined_tweets_df[
-            'is_tweet_locations_inc_india'].value_counts().to_dict().get(1)
-        summary_row_dict['outside_india_tweets'] = refined_tweets_df[
-            'is_tweet_locations_inc_india'].value_counts().to_dict().get(0)
 
         filtered_tweets_df = self.filter_india_specific_tweets(refined_tweets_df)
         self.create_filtered_tweet_ids_file(filtered_tweets_df, filtered_tweets_file)
@@ -182,22 +180,26 @@ class TweetsFiles:
         utilities.delete_file(filtered_tweets_file)
 
         merged_tweets_df = self.create_merged_dataframe(filtered_tweets_df, hydrated_tweets_file)
+        self.create_merged_tweets_file(merged_tweets_df, merged_tweets_file)
 
-        cleaned_tweets_df = self.clean_full_tweets(merged_tweets_df)
-
-        summary_row_dict['india_specific_tweets_with_full_text'] = len(
-            cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text']), :].index)
-        summary_row_dict['india_specific_tweets_without_full_text'] = len(
-            cleaned_tweets_df.loc[pd.isnull(cleaned_tweets_df['full_text']), :].index)
-
-        cleaned_tweets_df = self.filter_dataframe(cleaned_tweets_df)
-
-        summary_row_dict['india_full_text_tweet_india_users'] = cleaned_tweets_df['is_user_india_based'] \
-            .value_counts().to_dict().get(1)
-        summary_row_dict['india_full_text_tweet_outside_india_users'] = cleaned_tweets_df['is_user_india_based'] \
-            .value_counts().to_dict().get(0)
-
+        cleaned_full_tweets_df = self.clean_full_tweets(merged_tweets_df)
+        cleaned_tweets_df = self.filter_dataframe(cleaned_full_tweets_df)
         self.create_cleaned_tweets_file(cleaned_tweets_df, cleaned_tweets_file)
+
+        summary_row_dict = {'file_name': file_name,
+                            'total_tweets': len(tweets_df.index),
+                            'india_specific_tweets': refined_tweets_df[
+                                'is_tweet_locations_inc_india'].value_counts().to_dict().get(1),
+                            'outside_india_tweets': refined_tweets_df[
+                                'is_tweet_locations_inc_india'].value_counts().to_dict().get(0),
+                            'india_specific_tweets_with_full_text': len(
+                                cleaned_full_tweets_df.loc[~pd.isnull(cleaned_full_tweets_df['full_text']), :].index),
+                            'india_specific_tweets_without_full_text': len(
+                                cleaned_full_tweets_df.loc[pd.isnull(cleaned_full_tweets_df['full_text']), :].index),
+                            'india_full_text_tweet_india_users': cleaned_tweets_df['is_user_india_based']
+                            .value_counts().to_dict().get(1),
+                            'india_full_text_tweet_outside_india_users': cleaned_tweets_df['is_user_india_based']
+                            .value_counts().to_dict().get(0)}
 
         return summary_row_dict
 
@@ -264,6 +266,16 @@ class TweetsFiles:
         print()
 
     @staticmethod
+    def create_merged_tweets_file(merged_tweets_df, merged_tweets_file):
+        print('Looking for Merged File Path : {}'.format(merged_tweets_file))
+        if not (merged_tweets_df.empty or os.path.exists(merged_tweets_file)):
+            print('File not available. Creating merged file...')
+            merged_tweets_df.to_csv(merged_tweets_file, index=False)
+        else:
+            print("Dataframe doesn't exist or File already exists")
+        print()
+
+    @staticmethod
     def hydrate_tweets_from_file(filtered_tweets_file, hydrated_tweets_file):
         print('Looking for Hydrated File Path : {}'.format(hydrated_tweets_file))
         if not os.path.exists(hydrated_tweets_file):
@@ -280,7 +292,8 @@ class TweetsFiles:
         cleaned_tweets_df = tweets_df.copy()
 
         cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text']), 'full_text'] = cleaned_tweets_df \
-            .loc[~pd.isnull(cleaned_tweets_df['full_text']), 'full_text'].apply(lambda x: clean_tweet.process_tweet(x))\
+            .loc[~pd.isnull(cleaned_tweets_df['full_text']), 'full_text'] \
+            .apply(lambda x: clean_tweet.process_tweet(x)) \
             .copy()
 
         return cleaned_tweets_df
