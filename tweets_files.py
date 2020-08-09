@@ -2,6 +2,7 @@ import os
 import zipfile
 
 import pandas as pd
+import numpy as np
 import wget
 
 import utilities
@@ -152,54 +153,68 @@ class TweetsFiles:
         return summary_row_dict
 
     def read_extracted_tweet_file(self, file_name, extracted_tweets_file, cleaned_tweets_file):
-        filtered_tweet_file_name = self.create_file_name(file_name,
-                                                         self.filtered_tweets_file_type)
-        filtered_tweets_file = os.path.join(self.filtered_tweets_files_dir, filtered_tweet_file_name)
-
-        hydrated_tweet_file_name = self.create_file_name(file_name,
-                                                         self.hydrated_tweets_file_type)
-        hydrated_tweets_file = os.path.join(self.hydrated_tweets_files_dir, hydrated_tweet_file_name)
-
         merged_tweet_file_name = self.create_file_name(file_name,
                                                        self.merged_tweets_file_type)
         merged_tweets_file = os.path.join(self.merged_tweets_files_dir, merged_tweet_file_name)
 
-        tweets_df = self.read_json_file_to_dataframe(extracted_tweets_file)
-        tweets_df = self.drop_duplicate_tweets(tweets_df)
+        print('Looking for Merged File Path : {}'.format(merged_tweets_file))
+        if os.path.exists(merged_tweets_file):
+            print('Merged file available. Creating merged dataframe...')
+            merged_tweets_df = pd.read_csv(merged_tweets_file, low_memory=False)
 
-        refined_tweets_df = self.populate_location_columns(tweets_df)
-        refined_tweets_df = self.populate_tweet_location_column(refined_tweets_df)
-        refined_tweets_df = self.populate_custom_fields(refined_tweets_df)
-        refined_tweets_df = self.rename_raw_columns(refined_tweets_df)
+            cleaned_full_tweets_df = self.clean_full_tweets(merged_tweets_df)
+            cleaned_tweets_df = self.filter_dataframe(cleaned_full_tweets_df)
+            self.create_cleaned_tweets_file(cleaned_tweets_df, cleaned_tweets_file)
 
-        filtered_tweets_df = self.filter_india_specific_tweets(refined_tweets_df)
-        self.create_filtered_tweet_ids_file(filtered_tweets_df, filtered_tweets_file)
+            summary_row_dict = {}
+        else:
+            print('Merged file not available. Starting process...')
+            filtered_tweet_file_name = self.create_file_name(file_name,
+                                                             self.filtered_tweets_file_type)
+            filtered_tweets_file = os.path.join(self.filtered_tweets_files_dir, filtered_tweet_file_name)
 
-        self.hydrate_tweets_from_file(filtered_tweets_file, hydrated_tweets_file)
+            hydrated_tweet_file_name = self.create_file_name(file_name,
+                                                             self.hydrated_tweets_file_type)
+            hydrated_tweets_file = os.path.join(self.hydrated_tweets_files_dir, hydrated_tweet_file_name)
 
-        utilities.delete_file(filtered_tweets_file)
+            tweets_df = self.read_json_file_to_dataframe(extracted_tweets_file)
+            tweets_df = self.drop_duplicate_tweets(tweets_df)
 
-        merged_tweets_df = self.create_merged_dataframe(filtered_tweets_df, hydrated_tweets_file)
-        self.create_merged_tweets_file(merged_tweets_df, merged_tweets_file)
+            refined_tweets_df = self.populate_location_columns(tweets_df)
+            refined_tweets_df = self.populate_tweet_location_column(refined_tweets_df)
+            refined_tweets_df = self.populate_custom_fields(refined_tweets_df)
+            refined_tweets_df = self.rename_raw_columns(refined_tweets_df)
 
-        cleaned_full_tweets_df = self.clean_full_tweets(merged_tweets_df)
-        cleaned_tweets_df = self.filter_dataframe(cleaned_full_tweets_df)
-        self.create_cleaned_tweets_file(cleaned_tweets_df, cleaned_tweets_file)
+            filtered_tweets_df = self.filter_india_specific_tweets(refined_tweets_df)
+            self.create_filtered_tweet_ids_file(filtered_tweets_df, filtered_tweets_file)
 
-        summary_row_dict = {'file_name': file_name,
-                            'total_tweets': len(tweets_df.index),
-                            'india_specific_tweets': refined_tweets_df[
-                                'is_tweet_locations_inc_india'].value_counts().to_dict().get(1),
-                            'outside_india_tweets': refined_tweets_df[
-                                'is_tweet_locations_inc_india'].value_counts().to_dict().get(0),
-                            'india_specific_tweets_with_full_text': len(
-                                cleaned_full_tweets_df.loc[~pd.isnull(cleaned_full_tweets_df['full_text']), :].index),
-                            'india_specific_tweets_without_full_text': len(
-                                cleaned_full_tweets_df.loc[pd.isnull(cleaned_full_tweets_df['full_text']), :].index),
-                            'india_full_text_tweet_india_users': cleaned_tweets_df['is_user_india_based']
-                            .value_counts().to_dict().get(1),
-                            'india_full_text_tweet_outside_india_users': cleaned_tweets_df['is_user_india_based']
-                            .value_counts().to_dict().get(0)}
+            self.hydrate_tweets_from_file(filtered_tweets_file, hydrated_tweets_file)
+
+            utilities.delete_file(filtered_tweets_file)
+
+            merged_tweets_df = self.create_merged_dataframe(filtered_tweets_df, hydrated_tweets_file)
+            self.create_merged_tweets_file(merged_tweets_df, merged_tweets_file)
+
+            cleaned_full_tweets_df = self.clean_full_tweets(merged_tweets_df)
+            cleaned_tweets_df = self.filter_dataframe(cleaned_full_tweets_df)
+            self.create_cleaned_tweets_file(cleaned_tweets_df, cleaned_tweets_file)
+
+            summary_row_dict = {'file_name': file_name,
+                                'total_tweets': len(tweets_df.index),
+                                'india_specific_tweets': refined_tweets_df[
+                                    'is_tweet_locations_inc_india'].value_counts().to_dict().get(1),
+                                'outside_india_tweets': refined_tweets_df[
+                                    'is_tweet_locations_inc_india'].value_counts().to_dict().get(0),
+                                'india_specific_tweets_with_full_text': len(
+                                    cleaned_full_tweets_df
+                                        .loc[~pd.isnull(cleaned_full_tweets_df['full_text']), :].index),
+                                'india_specific_tweets_without_full_text': len(
+                                    cleaned_full_tweets_df
+                                        .loc[pd.isnull(cleaned_full_tweets_df['full_text']), :].index),
+                                'india_full_text_tweet_india_users': cleaned_tweets_df['is_user_india_based']
+                                .value_counts().to_dict().get(1),
+                                'india_full_text_tweet_outside_india_users': cleaned_tweets_df['is_user_india_based']
+                                .value_counts().to_dict().get(0)}
 
         return summary_row_dict
 
@@ -303,6 +318,8 @@ class TweetsFiles:
         cleaned_tweets_df = tweets_df.loc[:, ['tweet_id', 'full_text',
                                               'is_user_india_based'
                                               ]].copy()
+
+        cleaned_tweets_df['full_text'].replace('', np.nan, inplace=True)
 
         cleaned_tweets_df = cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text'])].copy()
 
