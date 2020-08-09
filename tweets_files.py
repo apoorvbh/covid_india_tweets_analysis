@@ -66,6 +66,11 @@ class TweetsFiles:
         return tweets_df
 
     @staticmethod
+    def drop_duplicate_tweets(tweets_df):
+        updated_tweets_df = tweets_df.drop_duplicates(subset='tweet_id', keep="first")
+        return updated_tweets_df
+
+    @staticmethod
     def create_location_dataframe(tweets_df, column_name):
         location_df = pd.DataFrame()
 
@@ -154,6 +159,7 @@ class TweetsFiles:
         hydrated_tweets_file = os.path.join(self.hydrated_tweets_files_dir, hydrated_tweet_file_name)
 
         tweets_df = self.read_json_file_to_dataframe(extracted_tweets_file)
+        tweets_df = self.drop_duplicate_tweets(tweets_df)
 
         summary_row_dict['file_name'] = file_name
         summary_row_dict['total_tweets'] = len(tweets_df.index)
@@ -180,9 +186,9 @@ class TweetsFiles:
         cleaned_tweets_df = self.clean_full_tweets(merged_tweets_df)
 
         summary_row_dict['india_specific_tweets_with_full_text'] = len(
-            cleaned_tweets_df.loc[pd.isnull(cleaned_tweets_df['full_text']), :].index)
-        summary_row_dict['india_specific_tweets_without_full_text'] = len(
             cleaned_tweets_df.loc[~pd.isnull(cleaned_tweets_df['full_text']), :].index)
+        summary_row_dict['india_specific_tweets_without_full_text'] = len(
+            cleaned_tweets_df.loc[pd.isnull(cleaned_tweets_df['full_text']), :].index)
 
         cleaned_tweets_df = self.filter_dataframe(cleaned_tweets_df)
 

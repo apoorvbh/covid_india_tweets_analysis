@@ -5,7 +5,8 @@ import preprocessor as p
 
 class CleanTweet:
     def __init__(self):
-        p.set_options(p.OPT.RESERVED, p.OPT.MENTION, p.OPT.URL)
+        p.set_options(p.OPT.RESERVED, p.OPT.MENTION, p.OPT.URL, p.OPT.HASHTAG,
+                      p.OPT.EMOJI, p.OPT.SMILEY)
 
     @staticmethod
     def process_tweet(tweet):
