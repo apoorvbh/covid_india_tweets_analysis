@@ -43,6 +43,7 @@ class TweetsFiles:
 
     @staticmethod
     def read_json_file_to_dataframe(file_path):
+        print('Looking for File Path : {}'.format(file_path))
         if os.path.exists(file_path):
             print('File available. Reading...')
             with open(file_path) as f:
