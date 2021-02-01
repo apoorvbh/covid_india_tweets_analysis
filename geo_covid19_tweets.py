@@ -46,6 +46,7 @@ class GeoCovid19Tweets:
         self.add_to_summary(summary_row_dict)
 
     def add_to_summary(self, summary_row_dict):
+        print(summary_row_dict)
         if bool(summary_row_dict):
             self.summaries.append(summary_row_dict)
 
@@ -62,6 +63,8 @@ class GeoCovid19Tweets:
         if process_misc_update_file:
             self.process_misc_update_file(download_only_mode)
 
+        print('Summaries to write : ', len(self.summaries))
+
         if len(self.summaries) > 0:
             with open(self.summary_file_name, 'a', newline='') as csvFile:
                 writer = csv.DictWriter(csvFile, fieldnames=self.summary_fieldnames)
@@ -71,10 +74,10 @@ class GeoCovid19Tweets:
         self.tweet.cleanup()
 
     def initiate_processing_tweet_files(self):
-        download_only_mode = True
+        download_only_mode = False
 
         tweets_start_date = '2020-02-01'
-        tweets_end_date = '2020-02-02'
+        tweets_end_date = '2020-04-30'
         date_format = '%Y-%m-%d'
 
         process_misc_update_file = False

@@ -1,11 +1,32 @@
-/venv/
-/.idea/
-/.ipynb_checkpoints/
-/downloaded_tweets_files/
-/extracted_tweets_files/
-/filtered_tweets_files/
-/hydrated_tweets_files/
-/cleaned_tweets_files/
-/merged_tweets_files/
-/twarc.log
+venv
+.idea
+.ipynb_checkpoints
+__pycache__
 
+mallet-2.0.8.zip
+
+## Data Sourcing Temp Files ##
+downloaded_tweets_files
+extracted_tweets_files
+filtered_tweets_files
+hydrated_tweets_files
+cleaned_tweets_files
+merged_tweets_files
+twarc.log
+
+## Modelling Temp Files ##
+in_data
+in_tweets_model
+in_tweets_sample_model
+in_hdp_tweets_model
+in_results
+
+
+ou_data
+ou_tweets_model
+ou_sample_tweets_model
+
+## Old Temp File Folder ##
+in_data_old
+in_tweets_model_old
+in_tweets_model_mallet_extra_alpha
