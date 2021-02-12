@@ -3,7 +3,8 @@ venv
 .ipynb_checkpoints
 __pycache__
 
-mallet-2.0.8.zip
+## Setup Files ##
+*.zip
 
 ## Data Sourcing Temp Files ##
 downloaded_tweets_files
@@ -25,8 +26,19 @@ in_results
 ou_data
 ou_tweets_model
 ou_sample_tweets_model
+ou_tweets_model_hp_model
+ou_results
 
 ## Old Temp File Folder ##
 in_data_old
 in_tweets_model_old
 in_tweets_model_mallet_extra_alpha
+in_sample_tweets_model
+in_tweets_model_hp_topics
+india_tweets_model
+
+## Generated files ##
+*.jpg
+*.png
+*.xlsx
+*.html
