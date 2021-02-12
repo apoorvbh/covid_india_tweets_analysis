@@ -5,6 +5,7 @@ __pycache__
 
 ## Setup Files ##
 *.zip
+notebooks
 
 ## Data Sourcing Temp Files ##
 downloaded_tweets_files
